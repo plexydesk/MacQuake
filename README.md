@@ -2,6 +2,8 @@
 
 ![MacQuake Launcher](banner.png)
 
+<a href="https://www.buymeacoffee.com/plexydesk" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 A modern native port of id Software's classic 1996 shooter Quake, built from the ground up for Apple Silicon Macs.
 
 No SDL. No emulation layers. No x86 assembly hacks. Just clean C and Objective C, a software renderer with a Metal framebuffer blitter, and a polished Cocoa launcher that handles everything from game data setup to one click play.
