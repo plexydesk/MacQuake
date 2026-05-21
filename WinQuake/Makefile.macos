@@ -89,12 +89,14 @@ $(LAUNCHER_TARGET): $(LAUNCHER_OBJ)
 
 app: $(APP_BUNDLE)
 
-$(APP_BUNDLE): $(GAME_TARGET) $(LAUNCHER_TARGET) $(SHADER_LIB) Info.plist
+$(APP_BUNDLE): $(GAME_TARGET) $(LAUNCHER_TARGET) $(SHADER_LIB) Info.plist id1/pak0.pak
 	@echo "Building $(APP_NAME)..."
 	mkdir -p $(APP_MACOS)
 	mkdir -p $(APP_RESOURCES)
+	mkdir -p $(APP_RESOURCES)/id1
 	cp Info.plist $(APP_BUNDLE)/Contents/
 	cp $(SHADER_LIB) $(APP_RESOURCES)/
+	cp id1/pak0.pak $(APP_RESOURCES)/id1/
 	cp $(LAUNCHER_TARGET) $(APP_MACOS)/MacQuake
 	cp $(GAME_TARGET) $(APP_MACOS)/quake
 	@echo "Done: $(APP_BUNDLE)"

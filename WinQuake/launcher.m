@@ -74,6 +74,13 @@ static NSString *MD5OfFile(NSString *path)
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
+    // If no data in App Support, check if shareware is bundled in the app
+    if (!HasGameData()) {
+        NSString *bundledPak = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"id1/pak0.pak"];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:bundledPak]) {
+            [self copyPakFilesFromDir:[bundledPak stringByDeletingLastPathComponent]];
+        }
+    }
     [self showSetupWindow];
 }
 
