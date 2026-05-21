@@ -76,6 +76,9 @@ void ED_Free (edict_t *ed);
 char	*ED_NewString (char *string);
 // returns a copy of the string allocated from the server's string heap
 
+string_t PR_SetString (const char *s);
+// copies a C string into the hunk and returns its offset from pr_strings
+
 void ED_Print (edict_t *ed);
 void ED_Write (FILE *f, edict_t *ed);
 char *ED_ParseEdict (char *data, edict_t *ent);

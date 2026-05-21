@@ -716,6 +716,15 @@ char *ED_NewString (char *string)
 	return new;
 }
 
+string_t PR_SetString (const char *s)
+{
+	char	*new;
+	
+	new = Hunk_Alloc (strlen(s) + 1);
+	strcpy (new, s);
+	return new - pr_strings;
+}
+
 
 /*
 =============
