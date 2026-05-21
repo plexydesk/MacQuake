@@ -113,17 +113,26 @@ static NSString *MD5OfFile(NSString *path)
     [subtitle setAlignment:NSTextAlignmentCenter];
     [view addSubview:subtitle];
 
-    // Download button
+    // Open download page button
     downloadBtn = [[NSButton alloc] initWithFrame:NSMakeRect(60, 130, 360, 32)];
-    [downloadBtn setTitle:@"Download Shareware Data"];
+    [downloadBtn setTitle:@"Get Shareware from Archive.org…"];
     [downloadBtn setBezelStyle:NSBezelStyleRounded];
     [downloadBtn setTarget:self];
-    [downloadBtn setAction:@selector(startDownload:)];
+    [downloadBtn setAction:@selector(openDownloadPage:)];
     [view addSubview:downloadBtn];
 
+    // Use local data button (for dev builds with id1/ next to the app)
+    NSButton *localBtn = [[NSButton alloc] initWithFrame:NSMakeRect(60, 95, 360, 28)];
+    [localBtn setTitle:@"Use Local id1/ Folder"];
+    [localBtn setBezelStyle:NSBezelStyleRounded];
+    [localBtn setTarget:self];
+    [localBtn setAction:@selector(useLocalData:)];
+    [localBtn setTag:100];
+    [view addSubview:localBtn];
+
     // Select button
-    selectBtn = [[NSButton alloc] initWithFrame:NSMakeRect(60, 90, 360, 32)];
-    [selectBtn setTitle:@"I Already Have the Full Game…"];
+    selectBtn = [[NSButton alloc] initWithFrame:NSMakeRect(60, 60, 360, 28)];
+    [selectBtn setTitle:@"Select Existing Game Data…"];
     [selectBtn setBezelStyle:NSBezelStyleRounded];
     [selectBtn setTarget:self];
     [selectBtn setAction:@selector(selectExistingData:)];
@@ -164,84 +173,46 @@ static NSString *MD5OfFile(NSString *path)
 }
 
 // -------------------------------------------------------------------------
-// Download shareware
+// Open download page
 // -------------------------------------------------------------------------
 
-- (void)startDownload:(id)sender
+- (void)openDownloadPage:(id)sender
 {
-    [downloadBtn setEnabled:NO];
-    [selectBtn setEnabled:NO];
-    [progressBar setHidden:NO];
-    [statusLabel setStringValue:@"Downloading shareware data…"];
-
-    NSURL *url = [NSURL URLWithString:SHAREWARE_URL];
-    NSURLSessionConfiguration *cfg = [NSURLSessionConfiguration defaultSessionConfiguration];
-    NSURLSession *session = [NSURLSession sessionWithConfiguration:cfg delegate:self delegateQueue:[NSOperationQueue mainQueue]];
-    downloadTask = [session downloadTaskWithURL:url];
-    [downloadTask resume];
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://archive.org/details/quake106"]];
+    [statusLabel setStringValue:@"Browser opened. Download the shareware, then return and select it."];
 }
 
-- (void)URLSession:(NSURLSession *)session
-      downloadTask:(NSURLSessionDownloadTask *)task
-      didWriteData:(int64_t)bytesWritten
- totalBytesWritten:(int64_t)totalBytesWritten
-totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
-{
-    [progressBar setDoubleValue:(double)totalBytesWritten];
-    [statusLabel setStringValue:[NSString stringWithFormat:@"Downloading… %.1f MB / %.1f MB",
-                                 totalBytesWritten / (1024.0 * 1024.0),
-                                 totalBytesExpectedToWrite / (1024.0 * 1024.0)]];
-}
+// -------------------------------------------------------------------------
+// Use local id1/ folder (for dev builds)
+// -------------------------------------------------------------------------
 
-- (void)URLSession:(NSURLSession *)session
-      downloadTask:(NSURLSessionDownloadTask *)task
- didFinishDownloadingToURL:(NSURL *)location
+- (void)useLocalData:(id)sender
 {
-    NSFileManager *fm = [NSFileManager defaultManager];
-    NSString *destDir = DataDir();
-    NSString *destPath = PakPath();
+    // Look for id1/ next to the app bundle, or inside it
+    NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
+    NSString *bundleParent = [bundlePath stringByDeletingLastPathComponent];
 
-    NSError *err = nil;
-    [fm createDirectoryAtPath:destDir withIntermediateDirectories:YES attributes:nil error:&err];
-    if (err) {
-        [statusLabel setStringValue:[@"Failed to create directory: " stringByAppendingString:[err localizedDescription]]];
-        [downloadBtn setEnabled:YES];
-        [selectBtn setEnabled:YES];
+    NSArray *candidates = @[
+        [bundleParent stringByAppendingPathComponent:@"id1"],
+        [[bundleParent stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"id1"],
+        [bundlePath stringByAppendingPathComponent:@"Contents/id1"],
+    ];
+
+    NSString *foundDir = nil;
+    for (NSString *candidate in candidates) {
+        NSString *pak = [candidate stringByAppendingPathComponent:@"pak0.pak"];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:pak]) {
+            foundDir = candidate;
+            break;
+        }
+    }
+
+    if (!foundDir) {
+        [statusLabel setStringValue:@"No local id1/ folder found next to the app."];
         return;
     }
 
-    [fm removeItemAtPath:destPath error:nil];
-    [fm moveItemAtPath:[location path] toPath:destPath error:&err];
-    if (err) {
-        [statusLabel setStringValue:[@"Failed to save file: " stringByAppendingString:[err localizedDescription]]];
-        [downloadBtn setEnabled:YES];
-        [selectBtn setEnabled:YES];
-        return;
-    }
-
-    // Verify MD5
-    [statusLabel setStringValue:@"Verifying download…"];
-    NSString *md5 = MD5OfFile(destPath);
-    if (![md5 isEqualToString:SHAREWARE_MD5]) {
-        [fm removeItemAtPath:destPath error:nil];
-        [statusLabel setStringValue:@"Download corrupted. Please try again."];
-        [progressBar setDoubleValue:0];
-        [downloadBtn setEnabled:YES];
-        [selectBtn setEnabled:YES];
-        return;
-    }
-
-    [self updateUIForDataState];
-}
-
-- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error
-{
-    if (error) {
-        [statusLabel setStringValue:[@"Download failed: " stringByAppendingString:[error localizedDescription]]];
-        [progressBar setDoubleValue:0];
-        [downloadBtn setEnabled:YES];
-        [selectBtn setEnabled:YES];
-    }
+    [self copyPakFilesFromDir:foundDir];
 }
 
 // -------------------------------------------------------------------------
@@ -285,7 +256,11 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
         return;
     }
 
-    // Copy all .pak files from the selected dir to App Support
+    [self copyPakFilesFromDir:sourceDir];
+}
+
+- (void)copyPakFilesFromDir:(NSString *)sourceDir
+{
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *destDir = DataDir();
     NSError *err = nil;
@@ -296,6 +271,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
     }
 
     NSArray *contents = [fm contentsOfDirectoryAtPath:sourceDir error:nil];
+    int copied = 0;
     for (NSString *item in contents) {
         if ([[item pathExtension] isEqualToString:@"pak"]) {
             NSString *src = [sourceDir stringByAppendingPathComponent:item];
@@ -306,9 +282,11 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
                 [statusLabel setStringValue:[@"Failed to copy: " stringByAppendingString:[err localizedDescription]]];
                 return;
             }
+            copied++;
         }
     }
 
+    [statusLabel setStringValue:[NSString stringWithFormat:@"Copied %d .pak file(s).", copied]];
     [self updateUIForDataState];
 }
 
@@ -318,6 +296,8 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
 
 - (void)updateUIForDataState
 {
+    NSButton *localBtn = [window.contentView viewWithTag:100];
+
     if (HasGameData()) {
         NSFileManager *fm = [NSFileManager defaultManager];
         NSArray *paks = [[fm contentsOfDirectoryAtPath:DataDir() error:nil]
@@ -327,6 +307,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
         [statusLabel setTextColor:[NSColor labelColor]];
         [launchBtn setHidden:NO];
         [downloadBtn setHidden:YES];
+        if (localBtn) [localBtn setHidden:YES];
         [selectBtn setHidden:YES];
         [progressBar setHidden:YES];
     } else {
@@ -334,6 +315,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
         [statusLabel setTextColor:[NSColor secondaryLabelColor]];
         [launchBtn setHidden:YES];
         [downloadBtn setHidden:NO];
+        if (localBtn) [localBtn setHidden:NO];
         [selectBtn setHidden:NO];
         [progressBar setHidden:YES];
     }
