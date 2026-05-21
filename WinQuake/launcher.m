@@ -5,9 +5,9 @@
 #import <CommonCrypto/CommonCrypto.h>
 #import <unistd.h>
 
-#define SHAREWARE_URL @"https://archive.org/download/QuakeSwarm/Quake%20Shareware/id1/pak0.pak"
+#define SHAREWARE_ZIP_URL @"https://ftp.gamers.org/pub/games/idgames2/idstuff/quake/quake106.zip"
 #define SHAREWARE_MD5 @"5906e5998fc3d896ddaf5e6a62e03abb"
-#define PAK_SIZE      18689235
+#define ZIP_SIZE      9094045
 
 static NSString *AppSupportDir(void)
 {
@@ -69,6 +69,7 @@ static NSString *MD5OfFile(NSString *path)
     NSButton *selectBtn;
     NSButton *launchBtn;
     NSURLSessionDownloadTask *downloadTask;
+    NSButton *replaceBtn;
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
@@ -113,12 +114,12 @@ static NSString *MD5OfFile(NSString *path)
     [subtitle setAlignment:NSTextAlignmentCenter];
     [view addSubview:subtitle];
 
-    // Open download page button
+    // Download shareware button
     downloadBtn = [[NSButton alloc] initWithFrame:NSMakeRect(60, 130, 360, 32)];
-    [downloadBtn setTitle:@"Get Shareware from Archive.org…"];
+    [downloadBtn setTitle:@"Download Shareware"];
     [downloadBtn setBezelStyle:NSBezelStyleRounded];
     [downloadBtn setTarget:self];
-    [downloadBtn setAction:@selector(openDownloadPage:)];
+    [downloadBtn setAction:@selector(startDownload:)];
     [view addSubview:downloadBtn];
 
     // Use local data button (for dev builds with id1/ next to the app)
@@ -143,7 +144,7 @@ static NSString *MD5OfFile(NSString *path)
     [progressBar setStyle:NSProgressIndicatorStyleBar];
     [progressBar setIndeterminate:NO];
     [progressBar setMinValue:0];
-    [progressBar setMaxValue:PAK_SIZE];
+    [progressBar setMaxValue:ZIP_SIZE];
     [progressBar setDoubleValue:0];
     [progressBar setHidden:YES];
     [view addSubview:progressBar];
@@ -170,7 +171,7 @@ static NSString *MD5OfFile(NSString *path)
     [view addSubview:launchBtn];
 
     // Replace data button (shown when data already exists)
-    NSButton *replaceBtn = [[NSButton alloc] initWithFrame:NSMakeRect(180, 70, 120, 24)];
+    replaceBtn = [[NSButton alloc] initWithFrame:NSMakeRect(180, 70, 120, 24)];
     [replaceBtn setTitle:@"Replace Data…"];
     [replaceBtn setBezelStyle:NSBezelStyleRoundRect];
     [replaceBtn setFont:[NSFont systemFontOfSize:11]];
@@ -183,13 +184,143 @@ static NSString *MD5OfFile(NSString *path)
 }
 
 // -------------------------------------------------------------------------
-// Open download page
+// Download & extract shareware
 // -------------------------------------------------------------------------
 
-- (void)openDownloadPage:(id)sender
+- (void)startDownload:(id)sender
 {
-    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://archive.org/details/quake106"]];
-    [statusLabel setStringValue:@"Browser opened. Download the shareware, then return and select it."];
+    [downloadBtn setEnabled:NO];
+    [selectBtn setEnabled:NO];
+    NSButton *localBtn = [window.contentView viewWithTag:100];
+    if (localBtn) [localBtn setEnabled:NO];
+    [progressBar setHidden:NO];
+    [progressBar setMaxValue:ZIP_SIZE];
+    [progressBar setDoubleValue:0];
+    [statusLabel setStringValue:@"Downloading quake106.zip…"];
+
+    NSURL *url = [NSURL URLWithString:SHAREWARE_ZIP_URL];
+    NSURLSessionConfiguration *cfg = [NSURLSessionConfiguration defaultSessionConfiguration];
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:cfg delegate:self delegateQueue:[NSOperationQueue mainQueue]];
+    downloadTask = [session downloadTaskWithURL:url];
+    [downloadTask resume];
+}
+
+- (void)URLSession:(NSURLSession *)session
+      downloadTask:(NSURLSessionDownloadTask *)task
+      didWriteData:(int64_t)bytesWritten
+ totalBytesWritten:(int64_t)totalBytesWritten
+totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
+{
+    [progressBar setDoubleValue:(double)totalBytesWritten];
+    [statusLabel setStringValue:[NSString stringWithFormat:@"Downloading… %.1f MB / %.1f MB",
+                                 totalBytesWritten / (1024.0 * 1024.0),
+                                 totalBytesExpectedToWrite / (1024.0 * 1024.0)]];
+}
+
+- (void)URLSession:(NSURLSession *)session
+      downloadTask:(NSURLSessionDownloadTask *)task
+ didFinishDownloadingToURL:(NSURL *)location
+{
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *zipPath = [tmpDir stringByAppendingPathComponent:@"quake106.zip"];
+    NSString *resPath = [tmpDir stringByAppendingPathComponent:@"resource.1"];
+    NSString *extractDir = [tmpDir stringByAppendingPathComponent:@"quake_extract"];
+
+    NSError *err = nil;
+
+    // Move downloaded zip to temp
+    [fm removeItemAtPath:zipPath error:nil];
+    [fm moveItemAtPath:[location path] toPath:zipPath error:&err];
+    if (err) {
+        [self downloadFailed:[@"Failed to save download: " stringByAppendingString:[err localizedDescription]]];
+        return;
+    }
+
+    // Step 1: unzip resource.1
+    [statusLabel setStringValue:@"Extracting archive…"];
+    [progressBar setIndeterminate:YES];
+    [progressBar startAnimation:nil];
+
+    NSTask *unzipTask = [[NSTask alloc] init];
+    [unzipTask setLaunchPath:@"/usr/bin/unzip"];
+    [unzipTask setArguments:@[ @"-o", @"-j", zipPath, @"resource.1", @"-d", tmpDir ]];
+    [unzipTask setStandardOutput:[NSPipe pipe]];
+    [unzipTask setStandardError:[NSPipe pipe]];
+    [unzipTask launch];
+    [unzipTask waitUntilExit];
+
+    if (![fm fileExistsAtPath:resPath]) {
+        [self downloadFailed:@"Could not extract resource.1 from zip."];
+        return;
+    }
+
+    // Step 2: tar extract ID1/PAK0.PAK from resource.1 (LZH archive)
+    [statusLabel setStringValue:@"Extracting LZH archive…"];
+    [fm removeItemAtPath:extractDir error:nil];
+    [fm createDirectoryAtPath:extractDir withIntermediateDirectories:YES attributes:nil error:nil];
+
+    NSTask *tarTask = [[NSTask alloc] init];
+    [tarTask setLaunchPath:@"/usr/bin/tar"];
+    [tarTask setCurrentDirectoryPath:extractDir];
+    [tarTask setArguments:@[ @"-xf", resPath, @"ID1/PAK0.PAK" ]];
+    [tarTask setStandardOutput:[NSPipe pipe]];
+    [tarTask setStandardError:[NSPipe pipe]];
+    [tarTask launch];
+    [tarTask waitUntilExit];
+
+    NSString *extractedPak = [extractDir stringByAppendingPathComponent:@"ID1/PAK0.PAK"];
+    if (![fm fileExistsAtPath:extractedPak]) {
+        [self downloadFailed:@"Could not extract pak0.pak from LZH archive."];
+        return;
+    }
+
+    // Step 3: copy to App Support
+    [statusLabel setStringValue:@"Installing…"];
+    NSString *destDir = DataDir();
+    NSString *destPath = PakPath();
+    [fm createDirectoryAtPath:destDir withIntermediateDirectories:YES attributes:nil error:nil];
+    [fm removeItemAtPath:destPath error:nil];
+    [fm copyItemAtPath:extractedPak toPath:destPath error:&err];
+    if (err) {
+        [self downloadFailed:[@"Failed to install: " stringByAppendingString:[err localizedDescription]]];
+        return;
+    }
+
+    // Verify MD5
+    NSString *md5 = MD5OfFile(destPath);
+    if (![md5 isEqualToString:SHAREWARE_MD5]) {
+        [fm removeItemAtPath:destPath error:nil];
+        [self downloadFailed:@"File verification failed (MD5 mismatch)."];
+        return;
+    }
+
+    // Cleanup
+    [fm removeItemAtPath:zipPath error:nil];
+    [fm removeItemAtPath:resPath error:nil];
+    [fm removeItemAtPath:extractDir error:nil];
+
+    [progressBar stopAnimation:nil];
+    [progressBar setIndeterminate:NO];
+    [self updateUIForDataState];
+}
+
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error
+{
+    if (error) {
+        [self downloadFailed:[@"Download failed: " stringByAppendingString:[error localizedDescription]]];
+    }
+}
+
+- (void)downloadFailed:(NSString *)reason
+{
+    [progressBar stopAnimation:nil];
+    [progressBar setHidden:YES];
+    [statusLabel setStringValue:reason];
+    [downloadBtn setEnabled:YES];
+    [selectBtn setEnabled:YES];
+    NSButton *localBtn = [window.contentView viewWithTag:100];
+    if (localBtn) [localBtn setEnabled:YES];
 }
 
 // -------------------------------------------------------------------------
@@ -307,7 +438,7 @@ static NSString *MD5OfFile(NSString *path)
 - (void)updateUIForDataState
 {
     NSButton *localBtn = [window.contentView viewWithTag:100];
-    NSButton *replaceBtn = [window.contentView viewWithTag:101];
+    NSButton *replaceBtnLocal = [window.contentView viewWithTag:101];
 
     if (HasGameData()) {
         NSFileManager *fm = [NSFileManager defaultManager];
@@ -320,7 +451,7 @@ static NSString *MD5OfFile(NSString *path)
         [downloadBtn setHidden:YES];
         if (localBtn) [localBtn setHidden:YES];
         [selectBtn setHidden:YES];
-        if (replaceBtn) [replaceBtn setHidden:NO];
+        if (replaceBtnLocal) [replaceBtnLocal setHidden:NO];
         [progressBar setHidden:YES];
     } else {
         [statusLabel setStringValue:@"No game data found."];
@@ -329,7 +460,7 @@ static NSString *MD5OfFile(NSString *path)
         [downloadBtn setHidden:NO];
         if (localBtn) [localBtn setHidden:NO];
         [selectBtn setHidden:NO];
-        if (replaceBtn) [replaceBtn setHidden:YES];
+        if (replaceBtnLocal) [replaceBtnLocal setHidden:YES];
         [progressBar setHidden:YES];
     }
 }
