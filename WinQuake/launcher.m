@@ -161,13 +161,23 @@ static NSString *MD5OfFile(NSString *path)
     [view addSubview:statusLabel];
 
     // Launch button
-    launchBtn = [[NSButton alloc] initWithFrame:NSMakeRect(140, 90, 200, 40)];
+    launchBtn = [[NSButton alloc] initWithFrame:NSMakeRect(140, 100, 200, 40)];
     [launchBtn setTitle:@"Launch MacQuake"];
     [launchBtn setBezelStyle:NSBezelStyleRounded];
     [launchBtn setFont:[NSFont boldSystemFontOfSize:14]];
     [launchBtn setTarget:self];
     [launchBtn setAction:@selector(launchGame)];
     [view addSubview:launchBtn];
+
+    // Replace data button (shown when data already exists)
+    NSButton *replaceBtn = [[NSButton alloc] initWithFrame:NSMakeRect(180, 70, 120, 24)];
+    [replaceBtn setTitle:@"Replace Data…"];
+    [replaceBtn setBezelStyle:NSBezelStyleRoundRect];
+    [replaceBtn setFont:[NSFont systemFontOfSize:11]];
+    [replaceBtn setTarget:self];
+    [replaceBtn setAction:@selector(showReplaceOptions:)];
+    [replaceBtn setTag:101];
+    [view addSubview:replaceBtn];
 
     [self updateUIForDataState];
 }
@@ -297,6 +307,7 @@ static NSString *MD5OfFile(NSString *path)
 - (void)updateUIForDataState
 {
     NSButton *localBtn = [window.contentView viewWithTag:100];
+    NSButton *replaceBtn = [window.contentView viewWithTag:101];
 
     if (HasGameData()) {
         NSFileManager *fm = [NSFileManager defaultManager];
@@ -309,6 +320,7 @@ static NSString *MD5OfFile(NSString *path)
         [downloadBtn setHidden:YES];
         if (localBtn) [localBtn setHidden:YES];
         [selectBtn setHidden:YES];
+        if (replaceBtn) [replaceBtn setHidden:NO];
         [progressBar setHidden:YES];
     } else {
         [statusLabel setStringValue:@"No game data found."];
@@ -317,8 +329,19 @@ static NSString *MD5OfFile(NSString *path)
         [downloadBtn setHidden:NO];
         if (localBtn) [localBtn setHidden:NO];
         [selectBtn setHidden:NO];
+        if (replaceBtn) [replaceBtn setHidden:YES];
         [progressBar setHidden:YES];
     }
+}
+
+- (void)showReplaceOptions:(id)sender
+{
+    [launchBtn setHidden:YES];
+    [[window.contentView viewWithTag:101] setHidden:YES];
+    [downloadBtn setHidden:NO];
+    [[window.contentView viewWithTag:100] setHidden:NO];
+    [selectBtn setHidden:NO];
+    [statusLabel setStringValue:@"Select a new data source below."];
 }
 
 - (void)launchGame
