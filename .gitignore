@@ -19,6 +19,7 @@ MacQuake
 *.icns
 *.jpg
 *.png
+!banner.png
 id1/pak0.pak
 id1/pak1.pak
 
