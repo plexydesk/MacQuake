@@ -1,0 +1,26 @@
+# Build artifacts
+build_macos/
+*.o
+*.a
+*.so
+*.dylib
+
+# Binaries
+quake
+MacQuake
+*.metallib
+*.air
+
+# App bundles and disk images
+*.app
+*.dmg
+
+# Binary assets (distributed via releases)
+*.icns
+*.jpg
+*.png
+id1/pak0.pak
+id1/pak1.pak
+
+# System files
+.DS_Store

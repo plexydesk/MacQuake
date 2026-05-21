@@ -15,7 +15,7 @@ GAME_LDFLAGS = -framework Cocoa -framework Metal -framework MetalKit \
 	-framework QuartzCore \
 	-lm
 
-LAUNCHER_LDFLAGS = -framework Cocoa -framework Security
+LAUNCHER_LDFLAGS = -framework Cocoa -framework Security -framework QuartzCore
 
 BUILDDIR = build_macos
 
@@ -58,7 +58,7 @@ APP_BUNDLE = $(BUILDDIR)/$(APP_NAME)
 APP_RESOURCES = $(APP_BUNDLE)/Contents/Resources
 APP_MACOS = $(APP_BUNDLE)/Contents/MacOS
 
-.PHONY: all clean app
+.PHONY: all clean app dmg
 
 all: $(BUILDDIR) $(SHADER_LIB) $(GAME_TARGET) $(LAUNCHER_TARGET)
 
@@ -89,17 +89,40 @@ $(LAUNCHER_TARGET): $(LAUNCHER_OBJ)
 
 app: $(APP_BUNDLE)
 
-$(APP_BUNDLE): $(GAME_TARGET) $(LAUNCHER_TARGET) $(SHADER_LIB) Info.plist id1/pak0.pak
+$(APP_BUNDLE): $(GAME_TARGET) $(LAUNCHER_TARGET) $(SHADER_LIB) Info.plist id1/pak0.pak cover.jpg Quake.icns
 	@echo "Building $(APP_NAME)..."
 	mkdir -p $(APP_MACOS)
 	mkdir -p $(APP_RESOURCES)
 	mkdir -p $(APP_RESOURCES)/id1
 	cp Info.plist $(APP_BUNDLE)/Contents/
 	cp $(SHADER_LIB) $(APP_RESOURCES)/
+	cp cover.jpg $(APP_RESOURCES)/
+	cp Quake.icns $(APP_RESOURCES)/
 	cp id1/pak0.pak $(APP_RESOURCES)/id1/
 	cp $(LAUNCHER_TARGET) $(APP_MACOS)/MacQuake
 	cp $(GAME_TARGET) $(APP_MACOS)/quake
 	@echo "Done: $(APP_BUNDLE)"
+
+# -------------------------------------------------------------------------
+# Redistributable DMG
+# -------------------------------------------------------------------------
+
+DMG_NAME = MacQuake.dmg
+DMG_PATH = $(BUILDDIR)/$(DMG_NAME)
+
+dmg: $(DMG_PATH)
+
+$(DMG_PATH): $(APP_BUNDLE)
+	@echo "Building DMG..."
+	@rm -f $(DMG_PATH)
+	@rm -rf $(BUILDDIR)/dmg_staging
+	@mkdir -p $(BUILDDIR)/dmg_staging
+	@cp -R $(APP_BUNDLE) $(BUILDDIR)/dmg_staging/
+	@ln -s /Applications $(BUILDDIR)/dmg_staging/Applications
+	hdiutil create -srcfolder $(BUILDDIR)/dmg_staging -volname "MacQuake" \
+		-fs HFS+ -format UDZO -ov -o $(DMG_PATH)
+	@rm -rf $(BUILDDIR)/dmg_staging
+	@echo "Done: $(DMG_PATH)"
 
 clean:
 	rm -rf $(BUILDDIR)

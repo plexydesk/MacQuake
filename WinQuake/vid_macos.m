@@ -346,12 +346,15 @@ void VID_Init(unsigned char *palette)
     NSUInteger styleMask = NSWindowStyleMaskTitled
                          | NSWindowStyleMaskClosable
                          | NSWindowStyleMaskMiniaturizable
-                         | NSWindowStyleMaskResizable;
+                         | NSWindowStyleMaskResizable
+                         | NSWindowStyleMaskFullSizeContentView;
     window = [[NSWindow alloc] initWithContentRect:frame
                                          styleMask:styleMask
                                            backing:NSBackingStoreBuffered
                                              defer:NO];
     [window setTitle:@"MacQuake"];
+    window.titleVisibility = NSWindowTitleHidden;
+    window.titlebarAppearsTransparent = YES;
     [window center];
     [window makeKeyAndOrderFront:nil];
     [window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];

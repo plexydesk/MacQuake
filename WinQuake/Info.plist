@@ -6,6 +6,8 @@
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>MacQuake</string>
+    <key>CFBundleIconFile</key>
+    <string>Quake</string>
     <key>CFBundleIdentifier</key>
     <string>com.macos.macquake</string>
     <key>CFBundleInfoDictionaryVersion</key>
