@@ -1,2 +1,2 @@
-// macOS Quake port -- ensure config.cfg is loaded
+// MacQuake -- ensure config.cfg is loaded
 exec config.cfg

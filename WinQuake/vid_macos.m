@@ -351,7 +351,7 @@ void VID_Init(unsigned char *palette)
                                          styleMask:styleMask
                                            backing:NSBackingStoreBuffered
                                              defer:NO];
-    [window setTitle:@"Quake"];
+    [window setTitle:@"MacQuake"];
     [window center];
     [window makeKeyAndOrderFront:nil];
     [window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];

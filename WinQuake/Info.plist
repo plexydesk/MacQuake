@@ -7,11 +7,11 @@
     <key>CFBundleExecutable</key>
     <string>quake</string>
     <key>CFBundleIdentifier</key>
-    <string>com.idsoftware.quake.macos</string>
+    <string>com.macos.macquake</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Quake</string>
+    <string>MacQuake</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

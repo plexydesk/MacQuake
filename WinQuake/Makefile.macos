@@ -1,4 +1,4 @@
-# Quake Makefile for macOS (ARM64 Apple Silicon)
+# MacQuake Makefile for macOS (ARM64 Apple Silicon)
 # Pure native — no SDL, no external libraries
 
 CC = clang
@@ -46,7 +46,7 @@ SHADER_SRC = shaders.metal
 SHADER_AIR = $(BUILDDIR)/shaders.air
 SHADER_LIB = $(BUILDDIR)/shaders.metallib
 
-APP_NAME = Quake.app
+APP_NAME = MacQuake.app
 APP_BUNDLE = $(BUILDDIR)/$(APP_NAME)
 APP_BINARY = $(APP_BUNDLE)/Contents/MacOS/quake
 APP_RESOURCES = $(APP_BUNDLE)/Contents/Resources

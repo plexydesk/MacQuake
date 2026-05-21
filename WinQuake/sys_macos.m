@@ -335,7 +335,7 @@ int main(int c, char **v)
 	if (COM_CheckParm("-nostdout"))
 		nostdout = 1;
 	else {
-		printf("macOS Quake -- Version %0.3f\n", VERSION);
+		printf("MacQuake -- Version %0.3f\n", VERSION);
 	}
 
 	oldtime = Sys_FloatTime() - 0.1;
