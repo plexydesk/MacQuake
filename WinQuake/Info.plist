@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>quake</string>
+    <string>MacQuake</string>
     <key>CFBundleIdentifier</key>
     <string>com.macos.macquake</string>
     <key>CFBundleInfoDictionaryVersion</key>

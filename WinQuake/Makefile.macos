@@ -10,14 +10,16 @@ CFLAGS = -O2 -g -arch arm64 \
 	-Wno-implicit-function-declaration \
 	-I.
 
-LDFLAGS = -framework Cocoa -framework Metal -framework MetalKit \
+GAME_LDFLAGS = -framework Cocoa -framework Metal -framework MetalKit \
 	-framework CoreAudio -framework AudioUnit -framework CoreFoundation \
 	-framework QuartzCore \
 	-lm
 
+LAUNCHER_LDFLAGS = -framework Cocoa -framework Security
+
 BUILDDIR = build_macos
 
-# C sources
+# C sources (game engine only)
 SRCS_C = \
 	cl_demo.c cl_input.c cl_main.c cl_parse.c cl_tent.c \
 	chase.c cmd.c common.c console.c crc.c cvar.c \
@@ -32,15 +34,20 @@ SRCS_C = \
 	zone.c view.c wad.c world.c \
 	cd_null.c snd_dma.c snd_mem.c snd_mix.c snd_macos.c
 
-# Objective-C sources
+# Objective-C sources (game engine only — launcher is separate)
 SRCS_M = sys_macos.m vid_macos.m in_macos.m metal_renderer.m
 
 OBJS_C = $(patsubst %.c,$(BUILDDIR)/%.o,$(SRCS_C))
 OBJS_M = $(patsubst %.m,$(BUILDDIR)/%.o,$(SRCS_M))
 
-OBJS = $(OBJS_C) $(OBJS_M)
+GAME_OBJS = $(OBJS_C) $(OBJS_M)
+LAUNCHER_OBJ = $(BUILDDIR)/launcher.o
 
-TARGET = $(BUILDDIR)/quake
+# Game binary (helper inside the app bundle)
+GAME_TARGET = $(BUILDDIR)/quake
+
+# Launcher binary (main app entry point)
+LAUNCHER_TARGET = $(BUILDDIR)/MacQuake
 
 SHADER_SRC = shaders.metal
 SHADER_AIR = $(BUILDDIR)/shaders.air
@@ -48,13 +55,12 @@ SHADER_LIB = $(BUILDDIR)/shaders.metallib
 
 APP_NAME = MacQuake.app
 APP_BUNDLE = $(BUILDDIR)/$(APP_NAME)
-APP_BINARY = $(APP_BUNDLE)/Contents/MacOS/quake
 APP_RESOURCES = $(APP_BUNDLE)/Contents/Resources
 APP_MACOS = $(APP_BUNDLE)/Contents/MacOS
 
 .PHONY: all clean app
 
-all: $(BUILDDIR) $(SHADER_LIB) $(TARGET)
+all: $(BUILDDIR) $(SHADER_LIB) $(GAME_TARGET) $(LAUNCHER_TARGET)
 
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
@@ -71,8 +77,11 @@ $(BUILDDIR)/%.o: %.c
 $(BUILDDIR)/%.o: %.m
 	$(CC) $(CFLAGS) -fobjc-arc -c $< -o $@
 
-$(TARGET): $(OBJS) $(SHADER_LIB)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+$(GAME_TARGET): $(GAME_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(GAME_OBJS) $(GAME_LDFLAGS)
+
+$(LAUNCHER_TARGET): $(LAUNCHER_OBJ)
+	$(CC) $(CFLAGS) -fobjc-arc -o $@ $(LAUNCHER_OBJ) $(LAUNCHER_LDFLAGS)
 
 # -------------------------------------------------------------------------
 # App bundle target
@@ -80,17 +89,18 @@ $(TARGET): $(OBJS) $(SHADER_LIB)
 
 app: $(APP_BUNDLE)
 
-$(APP_BUNDLE): $(OBJS) $(SHADER_LIB) Info.plist
+$(APP_BUNDLE): $(GAME_TARGET) $(LAUNCHER_TARGET) $(SHADER_LIB) Info.plist
 	@echo "Building $(APP_NAME)..."
 	mkdir -p $(APP_MACOS)
 	mkdir -p $(APP_RESOURCES)
 	cp Info.plist $(APP_BUNDLE)/Contents/
 	cp $(SHADER_LIB) $(APP_RESOURCES)/
-	$(CC) $(CFLAGS) -o $(APP_BINARY) $(OBJS) $(LDFLAGS)
+	cp $(LAUNCHER_TARGET) $(APP_MACOS)/MacQuake
+	cp $(GAME_TARGET) $(APP_MACOS)/quake
 	@echo "Done: $(APP_BUNDLE)"
 
 clean:
 	rm -rf $(BUILDDIR)
 
 # Dependencies
-$(OBJS): | $(BUILDDIR)
+$(GAME_OBJS) $(LAUNCHER_OBJ): | $(BUILDDIR)

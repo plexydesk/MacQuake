@@ -327,6 +327,9 @@ int main(int c, char **v)
 		parms.memsize = (int)(Q_atof(com_argv[j + 1]) * 1024 * 1024);
 	parms.membase = malloc(parms.memsize);
 
+	j = COM_CheckParm("-basedir");
+	if (j && j < com_argc - 1)
+		basedir = com_argv[j + 1];
 	parms.basedir = basedir;
 
 	Host_Init(&parms);
