@@ -3,6 +3,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import <CommonCrypto/CommonCrypto.h>
+#import <unistd.h>
 
 #define SHAREWARE_URL @"https://archive.org/download/QuakeSwarm/Quake%20Shareware/id1/pak0.pak"
 #define SHAREWARE_MD5 @"5906e5998fc3d896ddaf5e6a62e03abb"
@@ -350,26 +351,21 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
 
     NSString *basedir = AppSupportDir();
 
-    NSTask *task = [[NSTask alloc] init];
-    [task setExecutableURL:[NSURL fileURLWithPath:gameBinary]];
-    [task setArguments:@[ @"-basedir", basedir ]];
+    // Use execv to replace this process with the game — clean handoff, no child-process issues
+    const char *exe = [gameBinary UTF8String];
+    const char *arg_basedir = [basedir UTF8String];
+    const char *argv[] = { exe, "-basedir", arg_basedir, NULL };
 
-    NSPipe *pipe = [NSPipe pipe];
-    [task setStandardOutput:pipe];
-    [task setStandardError:pipe];
-
-    NSError *err = nil;
-    BOOL ok = [task launchAndReturnError:&err];
-    if (!ok) {
-        NSAlert *alert = [[NSAlert alloc] init];
-        [alert setMessageText:@"Failed to launch MacQuake"];
-        [alert setInformativeText:[err localizedDescription]];
-        [alert runModal];
-        return;
-    }
-
+    // Close the launcher window before handing off
     [window close];
-    [NSApp terminate:nil];
+
+    execv(exe, (char *const *)argv);
+
+    // If execv returns, it failed
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert setMessageText:@"Failed to launch MacQuake"];
+    [alert setInformativeText:[NSString stringWithFormat:@"execv failed: %s", strerror(errno)]];
+    [alert runModal];
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender
