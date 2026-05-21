@@ -28,15 +28,17 @@ void Metal_InitLayer(CAMetalLayer *layer)
 
 	commandQueue = [device newCommandQueue];
 
-	// Load metallib
-	NSString *exePath = [[NSBundle mainBundle] executablePath];
-	NSString *exeDir = [exePath stringByDeletingLastPathComponent];
-	NSString *libPath = [exeDir stringByAppendingPathComponent:@"shaders.metallib"];
-
+	// Load metallib — try bundle Resources first, then executable dir, then CWD
 	NSError *error = nil;
+	NSString *libPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"shaders.metallib"];
 	library = [device newLibraryWithFile:libPath error:&error];
 	if (!library) {
-		// Try current working directory
+		NSString *exePath = [[NSBundle mainBundle] executablePath];
+		NSString *exeDir = [exePath stringByDeletingLastPathComponent];
+		libPath = [exeDir stringByAppendingPathComponent:@"shaders.metallib"];
+		library = [device newLibraryWithFile:libPath error:&error];
+	}
+	if (!library) {
 		libPath = [@"shaders.metallib" stringByStandardizingPath];
 		library = [device newLibraryWithFile:libPath error:&error];
 	}

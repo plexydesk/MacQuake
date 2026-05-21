@@ -2,6 +2,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import <QuartzCore/CAMetalLayer.h>
+#import <CoreGraphics/CoreGraphics.h>
 
 #include "quakedef.h"
 #include "d_local.h"
@@ -27,6 +28,7 @@ static int vid_modenum = 0;
 static unsigned char current_palette[768];
 
 static NSUInteger prevModifiers = 0;
+static qboolean mouse_locked = false;
 
 // External Metal renderer functions
 extern void Metal_InitLayer(CAMetalLayer *layer);
@@ -35,6 +37,44 @@ extern void Metal_UpdateFrameTexture(unsigned char *buffer, int rowbytes);
 extern void Metal_UpdatePalette(unsigned char *palette);
 extern void Metal_RenderFrame(CAMetalLayer *layer);
 extern void Metal_Shutdown(void);
+
+// -------------------------------------------------------------------------
+// Mouse lock / unlock
+// -------------------------------------------------------------------------
+
+static void LockMouse(void)
+{
+    if (mouse_locked || !window)
+        return;
+    mouse_locked = true;
+    CGAssociateMouseAndMouseCursorPosition(NO);
+    [NSCursor hide];
+}
+
+static void UnlockMouse(void)
+{
+    if (!mouse_locked)
+        return;
+    mouse_locked = false;
+    CGAssociateMouseAndMouseCursorPosition(YES);
+    [NSCursor unhide];
+}
+
+static void WarpMouseToCenter(void)
+{
+    if (!window)
+        return;
+    NSRect frame = [window frame];
+    CGPoint center = CGPointMake(
+        frame.origin.x + frame.size.width * 0.5,
+        frame.origin.y + frame.size.height * 0.5
+    );
+    CGWarpMouseCursorPosition(center);
+}
+
+// -------------------------------------------------------------------------
+// QuakeView
+// -------------------------------------------------------------------------
 
 @interface QuakeView : NSView
 @end
@@ -113,6 +153,13 @@ static int MouseButtonForEvent(NSEvent *event) {
 }
 
 - (void)keyDown:(NSEvent *)event {
+    // Handle Cmd+Q as quit
+    if (([event modifierFlags] & NSEventModifierFlagCommand) &&
+        [[event charactersIgnoringModifiers] isEqualToString:@"q"]) {
+        Sys_Quit();
+        return;
+    }
+
     int key = KeyCodeForEvent(event);
     if (key) {
         Key_Event(key, true);
@@ -182,28 +229,74 @@ static int MouseButtonForEvent(NSEvent *event) {
 - (void)mouseMoved:(NSEvent *)event {
     mouse_x += [event deltaX];
     mouse_y -= [event deltaY];
+    if (mouse_locked) {
+        WarpMouseToCenter();
+    }
 }
 
 - (void)mouseDragged:(NSEvent *)event {
     mouse_x += [event deltaX];
     mouse_y -= [event deltaY];
+    if (mouse_locked) {
+        WarpMouseToCenter();
+    }
 }
 
 - (void)rightMouseDragged:(NSEvent *)event {
     mouse_x += [event deltaX];
     mouse_y -= [event deltaY];
+    if (mouse_locked) {
+        WarpMouseToCenter();
+    }
 }
 
 - (void)otherMouseDragged:(NSEvent *)event {
     mouse_x += [event deltaX];
     mouse_y -= [event deltaY];
+    if (mouse_locked) {
+        WarpMouseToCenter();
+    }
 }
 
 @end
 
-// ========================================================================
+// -------------------------------------------------------------------------
+// Window Delegate
+// -------------------------------------------------------------------------
+
+@interface QuakeWindowDelegate : NSObject <NSWindowDelegate>
+@end
+
+@implementation QuakeWindowDelegate
+
+- (BOOL)windowShouldClose:(NSWindow *)sender {
+    Sys_Quit();
+    return NO;
+}
+
+- (void)windowDidBecomeKey:(NSNotification *)notification {
+    LockMouse();
+}
+
+- (void)windowDidResignKey:(NSNotification *)notification {
+    UnlockMouse();
+}
+
+- (void)windowDidResize:(NSNotification *)notification {
+    NSWindow *win = [notification object];
+    NSView *view = [win contentView];
+    if (view && view.layer && [view.layer isKindOfClass:[CAMetalLayer class]]) {
+        CAMetalLayer *layer = (CAMetalLayer *)view.layer;
+        NSRect backingRect = [view convertRectToBacking:view.bounds];
+        layer.drawableSize = CGSizeMake(backingRect.size.width, backingRect.size.height);
+    }
+}
+
+@end
+
+// -------------------------------------------------------------------------
 // Video Interface
-// ========================================================================
+// -------------------------------------------------------------------------
 
 void VID_SetPalette(unsigned char *palette)
 {
@@ -248,16 +341,25 @@ void VID_Init(unsigned char *palette)
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
     [NSApp finishLaunching];
 
-    // Create window
-    NSRect frame = NSMakeRect(0, 0, 1280, 960);
+    // Create window (2x scale for Retina crispness, but renderer stays at chosen res)
+    NSRect frame = NSMakeRect(0, 0, width * 2, height * 2);
+    NSUInteger styleMask = NSWindowStyleMaskTitled
+                         | NSWindowStyleMaskClosable
+                         | NSWindowStyleMaskMiniaturizable
+                         | NSWindowStyleMaskResizable;
     window = [[NSWindow alloc] initWithContentRect:frame
-                                         styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable
+                                         styleMask:styleMask
                                            backing:NSBackingStoreBuffered
                                              defer:NO];
     [window setTitle:@"Quake"];
     [window center];
     [window makeKeyAndOrderFront:nil];
+    [window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
     [NSApp activateIgnoringOtherApps:YES];
+
+    // Set window delegate
+    QuakeWindowDelegate *delegate = [[QuakeWindowDelegate alloc] init];
+    [window setDelegate:delegate];
 
     // Create view with Metal layer
     gameView = [[QuakeView alloc] initWithFrame:frame];
@@ -307,13 +409,13 @@ void VID_Init(unsigned char *palette)
     Metal_CreateTextures(width, height);
     VID_SetPalette(palette);
 
-    // Hide cursor
-    [NSCursor hide];
+    // Hide cursor and lock mouse once window is active
+    LockMouse();
 }
 
 void VID_Shutdown(void)
 {
-    [NSCursor unhide];
+    UnlockMouse();
     Metal_Shutdown();
     if (window) {
         [window close];
@@ -356,6 +458,11 @@ int VID_SetMode(int modenum, unsigned char *palette)
 
 void VID_HandlePause(qboolean pause)
 {
+    if (pause) {
+        UnlockMouse();
+    } else {
+        LockMouse();
+    }
 }
 
 void D_BeginDirectRect(int x, int y, byte *pbitmap, int width, int height)
@@ -366,9 +473,9 @@ void D_EndDirectRect(int x, int y, int width, int height)
 {
 }
 
-// ========================================================================
+// -------------------------------------------------------------------------
 // Event Pumping
-// ========================================================================
+// -------------------------------------------------------------------------
 
 void VID_PumpEvents(void)
 {

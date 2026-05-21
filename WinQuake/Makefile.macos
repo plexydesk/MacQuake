@@ -46,7 +46,13 @@ SHADER_SRC = shaders.metal
 SHADER_AIR = $(BUILDDIR)/shaders.air
 SHADER_LIB = $(BUILDDIR)/shaders.metallib
 
-.PHONY: all clean
+APP_NAME = Quake.app
+APP_BUNDLE = $(BUILDDIR)/$(APP_NAME)
+APP_BINARY = $(APP_BUNDLE)/Contents/MacOS/quake
+APP_RESOURCES = $(APP_BUNDLE)/Contents/Resources
+APP_MACOS = $(APP_BUNDLE)/Contents/MacOS
+
+.PHONY: all clean app
 
 all: $(BUILDDIR) $(SHADER_LIB) $(TARGET)
 
@@ -67,6 +73,21 @@ $(BUILDDIR)/%.o: %.m
 
 $(TARGET): $(OBJS) $(SHADER_LIB)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+
+# -------------------------------------------------------------------------
+# App bundle target
+# -------------------------------------------------------------------------
+
+app: $(APP_BUNDLE)
+
+$(APP_BUNDLE): $(OBJS) $(SHADER_LIB) Info.plist
+	@echo "Building $(APP_NAME)..."
+	mkdir -p $(APP_MACOS)
+	mkdir -p $(APP_RESOURCES)
+	cp Info.plist $(APP_BUNDLE)/Contents/
+	cp $(SHADER_LIB) $(APP_RESOURCES)/
+	$(CC) $(CFLAGS) -o $(APP_BINARY) $(OBJS) $(LDFLAGS)
+	@echo "Done: $(APP_BUNDLE)"
 
 clean:
 	rm -rf $(BUILDDIR)
