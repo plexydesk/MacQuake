@@ -73,12 +73,6 @@ static NSString *MD5OfFile(NSString *path)
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
-    // If data already present, launch immediately
-    if (HasGameData()) {
-        [self launchGame];
-        return;
-    }
-
     [self showSetupWindow];
 }
 
@@ -157,15 +151,16 @@ static NSString *MD5OfFile(NSString *path)
     [statusLabel setTextColor:[NSColor secondaryLabelColor]];
     [view addSubview:statusLabel];
 
-    // Launch button (hidden until ready)
+    // Launch button
     launchBtn = [[NSButton alloc] initWithFrame:NSMakeRect(140, 90, 200, 40)];
     [launchBtn setTitle:@"Launch MacQuake"];
     [launchBtn setBezelStyle:NSBezelStyleRounded];
     [launchBtn setFont:[NSFont boldSystemFontOfSize:14]];
     [launchBtn setTarget:self];
     [launchBtn setAction:@selector(launchGame)];
-    [launchBtn setHidden:YES];
     [view addSubview:launchBtn];
+
+    [self updateUIForDataState];
 }
 
 // -------------------------------------------------------------------------
@@ -236,7 +231,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
         return;
     }
 
-    [self dataReady];
+    [self updateUIForDataState];
 }
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error
@@ -314,21 +309,34 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
         }
     }
 
-    [self dataReady];
+    [self updateUIForDataState];
 }
 
 // -------------------------------------------------------------------------
 // Data ready / Launch
 // -------------------------------------------------------------------------
 
-- (void)dataReady
+- (void)updateUIForDataState
 {
-    [downloadBtn setHidden:YES];
-    [selectBtn setHidden:YES];
-    [progressBar setHidden:YES];
-    [launchBtn setHidden:NO];
-    [statusLabel setStringValue:@"Game data ready."];
-    [statusLabel setTextColor:[NSColor labelColor]];
+    if (HasGameData()) {
+        NSFileManager *fm = [NSFileManager defaultManager];
+        NSArray *paks = [[fm contentsOfDirectoryAtPath:DataDir() error:nil]
+                         filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self ENDSWITH[c] %@", @".pak"]];
+        NSString *pakList = [paks componentsJoinedByString:@", "];
+        [statusLabel setStringValue:[NSString stringWithFormat:@"Detected: %@", pakList]];
+        [statusLabel setTextColor:[NSColor labelColor]];
+        [launchBtn setHidden:NO];
+        [downloadBtn setHidden:YES];
+        [selectBtn setHidden:YES];
+        [progressBar setHidden:YES];
+    } else {
+        [statusLabel setStringValue:@"No game data found."];
+        [statusLabel setTextColor:[NSColor secondaryLabelColor]];
+        [launchBtn setHidden:YES];
+        [downloadBtn setHidden:NO];
+        [selectBtn setHidden:NO];
+        [progressBar setHidden:YES];
+    }
 }
 
 - (void)launchGame
