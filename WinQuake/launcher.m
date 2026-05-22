@@ -504,7 +504,6 @@ static NSColor *ColorPlayBtnHover(void){ return [NSColor colorWithCalibratedRed:
     y -= 32;
 
     argsField = [[NSTextField alloc] initWithFrame:NSMakeRect(margin, y, fieldW, 34)];
-    [argsField setStringValue:@"-width 1280 -height 960"];
     [argsField setFont:[NSFont systemFontOfSize:12]];
     [argsField setTextColor:[NSColor whiteColor]];
     [argsField setBezeled:NO];
