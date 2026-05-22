@@ -4,6 +4,33 @@
 
 <a href="https://buymeacoffee.com/plexydesk/e/540523" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
+### macOS says the app is damaged?
+
+This happens because MacQuake is not code signed or notarized. macOS Gatekeeper quarantines files downloaded from the web and shows a misleading "damaged" dialog.
+
+To fix it, open Terminal and run:
+
+```bash
+# Remove quarantine from the DMG
+xattr -d com.apple.quarantine ~/Downloads/MacQuake.dmg
+
+# Mount and copy the app
+open ~/Downloads/MacQuake.dmg
+cp -R /Volumes/MacQuake/MacQuake.app /Applications/
+
+# Remove quarantine from the app
+xattr -d com.apple.quarantine /Applications/MacQuake.app
+
+# Launch
+open /Applications/MacQuake.app
+```
+
+If the first command fails, use this broader fix:
+
+```bash
+xattr -cr /Applications/MacQuake.app
+```
+
 A modern native port of id Software's classic 1996 shooter Quake, built from the ground up for Apple Silicon Macs.
 
 No SDL. No emulation layers. No x86 assembly hacks. Just clean C and Objective C, a software renderer with a Metal framebuffer blitter, and a polished Cocoa launcher that handles everything from game data setup to one click play.
