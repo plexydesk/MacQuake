@@ -266,6 +266,7 @@ static NSColor *ColorPlayBtnHover(void){ return [NSColor colorWithCalibratedRed:
     // ---- Left Cover Panel ----
     NSView *leftPanel = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 480, winH)];
     [leftPanel setWantsLayer:YES];
+    leftPanel.layer.backgroundColor = [NSColor colorWithCalibratedRed:0.067 green:0.059 blue:0.051 alpha:1.0].CGColor;
 
     // Cover image
     NSImage *cover = nil;
@@ -277,30 +278,10 @@ static NSColor *ColorPlayBtnHover(void){ return [NSColor colorWithCalibratedRed:
     }
 
     // Aspect-fit cover image (maintain aspect ratio, fit entirely inside panel)
-    NSImageView *coverView = nil;
-    if (cover) {
-        CGFloat coverAspect = cover.size.width / cover.size.height;
-        CGFloat panelAspect = 480.0 / winH;
-        CGFloat cvW, cvH, cvX, cvY;
-        if (coverAspect > panelAspect) {
-            // Image is wider relative to panel: fit to width, black bars top/bottom
-            cvW = 480.0;
-            cvH = cvW / coverAspect;
-            cvX = 0;
-            cvY = (winH - cvH) / 2.0;
-        } else {
-            // Image is taller relative to panel: fit to height, black bars left/right
-            cvH = winH;
-            cvW = cvH * coverAspect;
-            cvX = (480.0 - cvW) / 2.0;
-            cvY = 0;
-        }
-        coverView = [[NSImageView alloc] initWithFrame:NSMakeRect(cvX, cvY, cvW, cvH)];
-        [coverView setImageScaling:NSImageScaleProportionallyUpOrDown];
-        [coverView setImage:cover];
-    } else {
-        coverView = [[NSImageView alloc] initWithFrame:leftPanel.bounds];
-    }
+    // Panel background matches image average color so letterbox areas blend in
+    NSImageView *coverView = [[NSImageView alloc] initWithFrame:leftPanel.bounds];
+    [coverView setImageScaling:NSImageScaleProportionallyUpOrDown];
+    [coverView setImage:cover];
     [leftPanel addSubview:coverView];
 
     // Gradient overlay at bottom for text readability
