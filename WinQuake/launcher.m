@@ -276,22 +276,24 @@ static NSColor *ColorPlayBtnHover(void){ return [NSColor colorWithCalibratedRed:
         cover = [[NSImage alloc] initWithContentsOfFile:[exeDir stringByAppendingPathComponent:@"quake_art.png"]];
     }
 
-    // Aspect-fill cover image (maintain aspect ratio, crop to fill panel)
+    // Aspect-fit cover image (maintain aspect ratio, fit entirely inside panel)
     NSImageView *coverView = nil;
     if (cover) {
         CGFloat coverAspect = cover.size.width / cover.size.height;
         CGFloat panelAspect = 480.0 / winH;
         CGFloat cvW, cvH, cvX, cvY;
         if (coverAspect > panelAspect) {
-            cvH = winH;
-            cvW = cvH * coverAspect;
-            cvX = (480.0 - cvW) / 2.0;
-            cvY = 0;
-        } else {
+            // Image is wider relative to panel: fit to width, black bars top/bottom
             cvW = 480.0;
             cvH = cvW / coverAspect;
             cvX = 0;
             cvY = (winH - cvH) / 2.0;
+        } else {
+            // Image is taller relative to panel: fit to height, black bars left/right
+            cvH = winH;
+            cvW = cvH * coverAspect;
+            cvX = (480.0 - cvW) / 2.0;
+            cvY = 0;
         }
         coverView = [[NSImageView alloc] initWithFrame:NSMakeRect(cvX, cvY, cvW, cvH)];
         [coverView setImageScaling:NSImageScaleProportionallyUpOrDown];
