@@ -16,6 +16,10 @@ Prebuilt app bundles with shareware game data included are available through Buy
 
 Your support helps cover development time and future improvements.
 
+## Screenshot
+
+![MacQuake Launcher Screenshot](screenshot.png)
+
 ## Features
 
 * Native Apple Silicon build (ARM64)
