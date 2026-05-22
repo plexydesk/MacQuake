@@ -20,6 +20,7 @@ MacQuake
 *.jpg
 *.png
 !banner.png
+!WinQuake/quake_art.png
 id1/pak0.pak
 id1/pak1.pak
 

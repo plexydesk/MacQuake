@@ -269,11 +269,11 @@ static NSColor *ColorPlayBtnHover(void){ return [NSColor colorWithCalibratedRed:
 
     // Cover image
     NSImage *cover = nil;
-    NSString *coverPath = [[NSBundle mainBundle] pathForResource:@"cover" ofType:@"jpg"];
+    NSString *coverPath = [[NSBundle mainBundle] pathForResource:@"quake_art" ofType:@"png"];
     if (coverPath) cover = [[NSImage alloc] initWithContentsOfFile:coverPath];
     if (!cover) {
         NSString *exeDir = [[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent];
-        cover = [[NSImage alloc] initWithContentsOfFile:[exeDir stringByAppendingPathComponent:@"cover.jpg"]];
+        cover = [[NSImage alloc] initWithContentsOfFile:[exeDir stringByAppendingPathComponent:@"quake_art.png"]];
     }
 
     // Aspect-fill cover image (maintain aspect ratio, crop to fill panel)
